@@ -7,9 +7,12 @@ const authRoutes = require('./routes/authRoutes');
 const veiculoRoutes = require('./routes/veiculoRoutes');
 const checklistRoutes = require('./routes/checklistRoutes');
 const abastecimentoRoutes = require('./routes/abastecimentoRoutes');
+const motoristaRoutes = require('./routes/motoristaRoutes');
 
+// Inicialização do App
 const app = express();
 
+// Middlewares
 app.use(cors());
 app.use(express.json());
 
@@ -18,6 +21,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/veiculos', veiculoRoutes);
 app.use('/api/checklists', checklistRoutes);
 app.use('/api/abastecimentos', abastecimentoRoutes);
+app.use('/api/motoristas', motoristaRoutes);
 
 app.get('/', (req, res) => {
   res.send('API da Gestão de Frotas rodando com sucesso!');
