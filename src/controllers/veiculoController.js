@@ -51,3 +51,29 @@ exports.deletarVeiculo = async (req, res) => {
       .json({ mensagem: 'Erro ao excluir veículo.', erro: err.message });
   }
 };
+
+// EDITAR VEÍCULO
+exports.updateVeiculo = async (req, res) => {
+  const { id } = req.params;
+  const { placa, modelo, marca, ano, cor, renavam, chassi, km_atual } =
+    req.body;
+
+  try {
+    const [result] = await db.query(
+      `UPDATE veiculos 
+       SET placa = ?, modelo = ?, marca = ?, ano = ?, cor = ?, renavam = ?, chassi = ?, km_atual = ?
+       WHERE id = ?`,
+      [placa, modelo, marca, ano, cor, renavam, chassi, km_atual, id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ erro: 'Veículo não encontrado.' });
+    }
+
+    res.json({ mensagem: 'Veículo atualizado com sucesso!' });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ erro: 'Erro ao atualizar veículo: ' + error.message });
+  }
+};

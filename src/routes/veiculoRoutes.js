@@ -16,5 +16,9 @@ router.post('/', authMiddleware, veiculoController.cadastrarVeiculo);
 
 // Rota DELETE (para excluir) -> Exige login (authMiddleware) -> Executa deletarVeiculo
 router.delete('/:id', authMiddleware, veiculoController.deletarVeiculo);
+
+// Rota PUT (para atualizar) -> Exige login (authMiddleware) -> Executa updateVeiculo
+router.put('/:id', authMiddleware, veiculoController.updateVeiculo);
+
 // Exporta as rotas para serem registradas no server.js
 module.exports = router;
