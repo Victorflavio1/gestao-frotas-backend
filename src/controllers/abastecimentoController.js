@@ -1,15 +1,22 @@
 // Importa a conexão com o banco de dados
 const db = require('../config/db');
 
-// FUNÇÃO 1: LISTAR ABASTECIMENTOS
+/// FUNÇÃO 1: LISTAR ABASTECIMENTOS
 exports.listarAbastecimentos = async (req, res) => {
   try {
-    const [rows] = await db.query(`
-      SELECT a.*, v.placa 
-      FROM abastecimentos a 
+    const query = `
+      SELECT 
+        a.*,
+        v.placa AS veiculo_placa,
+        v.modelo AS veiculo_modelo,
+        m.nome AS motorista_nome
+      FROM abastecimentos a
       LEFT JOIN veiculos v ON a.veiculo_id = v.id
+      LEFT JOIN motoristas m ON a.motorista_id = m.id
       ORDER BY a.data_abastecimento DESC, a.id DESC
-    `);
+    `;
+
+    const [rows] = await db.query(query);
     res.json(rows);
   } catch (err) {
     res.status(500).json({
@@ -18,7 +25,6 @@ exports.listarAbastecimentos = async (req, res) => {
     });
   }
 };
-
 // FUNÇÃO: REGISTRAR ABASTECIMENTO COM VALIDAÇÕES RÍGIDAS
 exports.cadastrarAbastecimento = async (req, res) => {
   const {
@@ -34,7 +40,7 @@ exports.cadastrarAbastecimento = async (req, res) => {
   } = req.body;
 
   try {
-    // 1. Busca Ano e KM Atual do veículo
+    // 1. Busca os dados do veículo (Ano e KM Inicial de Cadastro)
     const [veiculos] = await db.query(
       'SELECT ano, km_atual FROM veiculos WHERE id = ?',
       [veiculo_id],
@@ -49,29 +55,33 @@ exports.cadastrarAbastecimento = async (req, res) => {
 
     const veiculo = veiculos[0];
 
-    // --- VALIDAÇÃO 1: KM ABASTECIMENTO > KM ATUAL ---
-    const kmAbastNum = parseFloat(km_abastecimento);
-    const kmAtualNum = parseFloat(veiculo.km_atual || 0);
+    // 2. Busca o Maior KM de Abastecimento já registrado para este veículo
+    const [ultimoAbast] = await db.query(
+      'SELECT MAX(km_abastecimento) as maior_km FROM abastecimentos WHERE veiculo_id = ?',
+      [veiculo_id],
+    );
 
-    if (isNaN(kmAbastNum) || kmAbastNum <= kmAtualNum) {
+    const kmCadastroVeiculo = parseFloat(veiculo.km_atual || 0);
+    const maiorKmAbastecido = ultimoAbast[0]?.maior_km
+      ? parseFloat(ultimoAbast[0].maior_km)
+      : 0;
+
+    // O KM mínimo obrigatório é o maior valor entre o KM de cadastro e o do último abastecimento
+    const kmMinimoRequerido = Math.max(kmCadastroVeiculo, maiorKmAbastecido);
+    const kmAbastNum = parseFloat(km_abastecimento);
+
+    // --- VALIDAÇÃO DE KM CRESCENTE ---
+    if (isNaN(kmAbastNum) || kmAbastNum <= kmMinimoRequerido) {
       return res.status(400).json({
-        mensagem: 'Erro ao registrar abastecimento.',
-        erro: `O KM do abastecimento (${kmAbastNum} km) precisa ser maior que o KM atual do veículo (${kmAtualNum} km).`,
+        mensagem: 'KM Inválido',
+        erro: `O KM informado (${kmAbastNum} km) precisa ser estritamente maior que o último KM registrado (${kmMinimoRequerido} km).`,
       });
     }
 
-    // --- VALIDAÇÃO 2: ANO DO ABASTECIMENTO >= ANO DO VEÍCULO ---
-    // Extrai os primeiros 4 dígitos do texto da data (ex: '2026-09-18' -> 2026)
-    let anoAbastecimento;
-    if (data_abastecimento) {
-      anoAbastecimento = parseInt(
-        data_abastecimento.toString().substring(0, 4),
-        10,
-      );
-    } else {
-      anoAbastecimento = new Date().getFullYear();
-    }
-
+    // --- VALIDAÇÃO DE ANO ---
+    let anoAbastecimento = data_abastecimento
+      ? parseInt(data_abastecimento.toString().substring(0, 4), 10)
+      : new Date().getFullYear();
     const anoVeiculo = parseInt(veiculo.ano, 10);
 
     if (!isNaN(anoVeiculo) && anoAbastecimento < anoVeiculo) {
@@ -81,7 +91,7 @@ exports.cadastrarAbastecimento = async (req, res) => {
       });
     }
 
-    // --- SE PASSOU NAS VALIDAÇÕES, INSERE NO BANCO ---
+    // --- INSERÇÃO NO BANCO ---
     await db.query(
       `INSERT INTO abastecimentos 
         (veiculo_id, motorista_id, data_abastecimento, km_abastecimento, litros, valor_unitario, valor_total, posto, tipo_combustivel) 
@@ -95,11 +105,11 @@ exports.cadastrarAbastecimento = async (req, res) => {
         valor_unitario || null,
         valor_total,
         posto || null,
-        tipo_combustivel || 'GASOLINA',
+        tipo_combustivel || 'FLEX',
       ],
     );
 
-    // --- ATUALIZA O KM DO VEÍCULO ---
+    /// --- ATUALIZA O KM ATUAL DO VEÍCULO ---
     await db.query('UPDATE veiculos SET km_atual = ? WHERE id = ?', [
       kmAbastNum,
       veiculo_id,
@@ -177,6 +187,89 @@ exports.relatorioConsumo = async (req, res) => {
   } catch (err) {
     res.status(500).json({
       mensagem: 'Erro ao calcular relatório de consumo.',
+      erro: err.message,
+    });
+  }
+};
+
+// FUNÇÃO 5: ATUALIZAR ABASTECIMENTO (PERMISSIVA COM ATUALIZAÇÃO RECALCULADA DO VEÍCULO)
+exports.atualizarAbastecimento = async (req, res) => {
+  const { id } = req.params;
+  const {
+    veiculo_id,
+    motorista_id,
+    data_abastecimento,
+    km_abastecimento,
+    litros,
+    valor_unitario,
+    valor_total,
+    posto,
+    tipo_combustivel,
+  } = req.body;
+
+  try {
+    const kmAbastNum = parseFloat(km_abastecimento);
+
+    if (isNaN(kmAbastNum) || kmAbastNum <= 0) {
+      return res.status(400).json({
+        mensagem: 'KM Inválido',
+        erro: 'Informe um valor de KM válido maior que zero.',
+      });
+    }
+
+    // 1. Atualiza o registro de abastecimento no banco
+    const [result] = await db.query(
+      `UPDATE abastecimentos 
+       SET 
+         veiculo_id = ?, 
+         motorista_id = ?, 
+         data_abastecimento = ?, 
+         km_abastecimento = ?, 
+         litros = ?, 
+         valor_unitario = ?, 
+         valor_total = ?, 
+         posto = ?, 
+         tipo_combustivel = ?
+       WHERE id = ?`,
+      [
+        veiculo_id,
+        motorista_id || null,
+        data_abastecimento,
+        kmAbastNum,
+        litros,
+        valor_unitario || null,
+        valor_total,
+        posto || null,
+        tipo_combustivel || 'FLEX',
+        id,
+      ],
+    );
+
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ mensagem: 'Abastecimento não encontrado para atualização.' });
+    }
+
+    // 2. Recalcula e sincroniza o km_atual do veículo com o MAIOR KM registrado entre todos os abastecimentos
+    const [maiorGeral] = await db.query(
+      'SELECT MAX(km_abastecimento) as max_km FROM abastecimentos WHERE veiculo_id = ?',
+      [veiculo_id],
+    );
+
+    const novoKmVeiculo = maiorGeral[0]?.max_km || kmAbastNum;
+
+    await db.query('UPDATE veiculos SET km_atual = ? WHERE id = ?', [
+      novoKmVeiculo,
+      veiculo_id,
+    ]);
+
+    return res
+      .status(200)
+      .json({ mensagem: 'Abastecimento atualizado com sucesso!' });
+  } catch (err) {
+    return res.status(500).json({
+      mensagem: 'Erro ao atualizar abastecimento.',
       erro: err.message,
     });
   }

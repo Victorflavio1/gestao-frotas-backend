@@ -7,4 +7,7 @@ router.get('/', authMiddleware, motoristaController.listarMotoristas);
 router.post('/', authMiddleware, motoristaController.cadastrarMotorista);
 router.delete('/:id', authMiddleware, motoristaController.deletarMotorista);
 
+// ✅ Rota PUT limpa e protegida com authMiddleware
+router.put('/:id', authMiddleware, motoristaController.updateMotorista);
+
 module.exports = router;

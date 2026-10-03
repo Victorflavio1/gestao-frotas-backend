@@ -14,21 +14,50 @@ exports.listarVeiculos = async (req, res) => {
 
 // CADASTRAR VEÍCULO (Verifique se o nome bate com o das rotas)
 exports.cadastrarVeiculo = async (req, res) => {
-  const { placa, modelo, marca, ano, cor, renavam, chassi, km_atual } =
-    req.body;
+  const {
+    placa,
+    modelo,
+    marca,
+    ano,
+    cor,
+    renavam,
+    chassi,
+    km_atual,
+    ano_crlv,
+    status,
+    numeracao,
+    tipo_combustivel,
+    tipo_veiculo,
+  } = req.body;
 
   try {
-    await db.query(
-      `INSERT INTO veiculos (placa, modelo, marca, ano, cor, renavam, chassi, km_atual) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [placa, modelo, marca, ano, cor, renavam, chassi, km_atual || 0],
-    );
+    const query = `
+      INSERT INTO veiculos 
+      (placa, modelo, marca, ano, cor, renavam, chassi, km_atual, ano_crlv, status, data_cadastro, numeracao, tipo_combustivel, tipo_veiculo)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?)
+    `;
 
-    res.status(201).json({ mensagem: 'Veículo cadastrado com sucesso!' });
-  } catch (err) {
-    res
-      .status(500)
-      .json({ mensagem: 'Erro ao cadastrar veículo.', erro: err.message });
+    await db.query(query, [
+      placa,
+      modelo,
+      marca,
+      ano,
+      cor,
+      renavam,
+      chassi,
+      km_atual,
+      ano_crlv,
+      status || 'DISPONIVEL',
+      numeracao,
+      tipo_combustivel,
+      tipo_veiculo,
+    ]);
+
+    return res
+      .status(201)
+      .json({ mensagem: 'Veículo cadastrado com sucesso!' });
+  } catch (error) {
+    return res.status(500).json({ erro: error.message });
   }
 };
 
@@ -55,25 +84,68 @@ exports.deletarVeiculo = async (req, res) => {
 // EDITAR VEÍCULO
 exports.updateVeiculo = async (req, res) => {
   const { id } = req.params;
-  const { placa, modelo, marca, ano, cor, renavam, chassi, km_atual } =
-    req.body;
+  const {
+    placa,
+    modelo,
+    marca,
+    ano,
+    cor,
+    renavam,
+    chassi,
+    km_atual,
+    ano_crlv,
+    status,
+    numeracao,
+    tipo_combustivel,
+    tipo_veiculo,
+  } = req.body;
 
   try {
-    const [result] = await db.query(
-      `UPDATE veiculos 
-       SET placa = ?, modelo = ?, marca = ?, ano = ?, cor = ?, renavam = ?, chassi = ?, km_atual = ?
-       WHERE id = ?`,
-      [placa, modelo, marca, ano, cor, renavam, chassi, km_atual, id],
-    );
+    const query = `
+      UPDATE veiculos 
+      SET 
+        placa = ?, 
+        modelo = ?, 
+        marca = ?, 
+        ano = ?, 
+        cor = ?, 
+        renavam = ?, 
+        chassi = ?, 
+        km_atual = ?, 
+        ano_crlv = ?, 
+        status = ?, 
+        numeracao = ?, 
+        tipo_combustivel = ?, 
+        tipo_veiculo = ?
+      WHERE id = ?
+    `;
+
+    const [result] = await db.query(query, [
+      placa,
+      modelo,
+      marca,
+      ano,
+      cor,
+      renavam,
+      chassi,
+      km_atual,
+      ano_crlv,
+      status,
+      numeracao,
+      tipo_combustivel,
+      tipo_veiculo,
+      id,
+    ]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ erro: 'Veículo não encontrado.' });
     }
 
-    res.json({ mensagem: 'Veículo atualizado com sucesso!' });
+    return res
+      .status(200)
+      .json({ mensagem: 'Veículo atualizado com sucesso!' });
   } catch (error) {
-    res
-      .status(500)
-      .json({ erro: 'Erro ao atualizar veículo: ' + error.message });
+    console.error('Erro ao atualizar veículo:', error);
+    return res.status(500).json({ erro: error.message });
   }
 };

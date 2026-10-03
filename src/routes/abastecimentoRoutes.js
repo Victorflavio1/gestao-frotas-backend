@@ -20,4 +20,11 @@ router.get(
   abastecimentoController.relatorioConsumo,
 );
 
+// ✅ CORRIGIDO: Altere de '/abastecimentos/:id' para '/:id'
+router.put(
+  '/:id',
+  authMiddleware, // Recomendado manter a autenticação
+  abastecimentoController.atualizarAbastecimento,
+);
+
 module.exports = router;
