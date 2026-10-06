@@ -1,5 +1,25 @@
 const db = require('../config/db');
 
+// Função auxiliar para sanitizar e tratar o status antes de salvar no DB
+const sanitizarStatus = (status) => {
+  if (!status) return 'DISPONIVEL';
+
+  const st = status.toString().trim().toUpperCase();
+
+  // Mapeamentos comuns para garantir compatibilidade com o ENUM do MySQL
+  if (st.includes('INATIV') || st.includes('DESATIV')) {
+    return 'INATIVO';
+  }
+  if (st.includes('MANUTEN')) {
+    return 'MANUTENCAO'; // Altere para 'EM_MANUTENCAO' se o ENUM do seu banco usar este valor
+  }
+  if (st.includes('USO') || st.includes('OCUP')) {
+    return 'EM_USO';
+  }
+
+  return 'DISPONIVEL';
+};
+
 // LISTAR VEÍCULOS
 exports.listarVeiculos = async (req, res) => {
   try {
@@ -12,7 +32,7 @@ exports.listarVeiculos = async (req, res) => {
   }
 };
 
-// CADASTRAR VEÍCULO (Verifique se o nome bate com o das rotas)
+// CADASTRAR VEÍCULO
 exports.cadastrarVeiculo = async (req, res) => {
   const {
     placa,
@@ -31,6 +51,8 @@ exports.cadastrarVeiculo = async (req, res) => {
   } = req.body;
 
   try {
+    const statusTratado = sanitizarStatus(status);
+
     const query = `
       INSERT INTO veiculos 
       (placa, modelo, marca, ano, cor, renavam, chassi, km_atual, ano_crlv, status, data_cadastro, numeracao, tipo_combustivel, tipo_veiculo)
@@ -47,7 +69,7 @@ exports.cadastrarVeiculo = async (req, res) => {
       chassi,
       km_atual,
       ano_crlv,
-      status || 'DISPONIVEL',
+      statusTratado,
       numeracao,
       tipo_combustivel,
       tipo_veiculo,
@@ -101,6 +123,8 @@ exports.updateVeiculo = async (req, res) => {
   } = req.body;
 
   try {
+    const statusTratado = sanitizarStatus(status);
+
     const query = `
       UPDATE veiculos 
       SET 
@@ -130,7 +154,7 @@ exports.updateVeiculo = async (req, res) => {
       chassi,
       km_atual,
       ano_crlv,
-      status,
+      statusTratado,
       numeracao,
       tipo_combustivel,
       tipo_veiculo,

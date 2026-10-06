@@ -1,65 +1,134 @@
-// Importa a conexão com o banco de dados
-const db = require('../config/db');
+const db = require('../config/db'); // Ajuste conforme seu arquivo de conexão com BD
 
-// FUNÇÃO 1: CADASTRAR UM NOVO CHECKLIST
-exports.cadastrarChecklist = async (req, res) => {
-  // Pega as informações de inspeção enviadas pelo motorista no formulário
-  const {
-    veiculo_id,
-    motorista_id,
-    km_registro,
-    nivel_combustivel,
-    pneus_ok,
-    oleo_ok,
-    observacoes,
-  } = req.body;
-
+exports.criarChecklist = async (req, res) => {
   try {
-    // Insere o registro de inspeção na tabela "checklists"
-    await db.query(
-      `INSERT INTO checklists 
-            (veiculo_id, motorista_id, km_registro, nivel_combustivel, pneus_ok, oleo_ok, observacoes) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        veiculo_id,
-        motorista_id,
-        km_registro,
-        nivel_combustivel,
-        pneus_ok,
-        oleo_ok,
-        observacoes,
-      ],
+    const {
+      tipo_checklist,
+      veiculo_id,
+      motorista_id,
+      km_atual,
+      nivel_combustivel,
+      cartao_combustivel,
+      documento_crlv,
+      triangulo,
+      chave_roda,
+      macaco,
+      extintor,
+      tacografos_faixas,
+      epis_capacete,
+      nivel_oleo,
+      liquido_arrefecimento,
+      sistema_freio,
+      suspensao_transmissao,
+      hidraulico_munck,
+      pneu_dd,
+      pneu_de,
+      pneu_td,
+      pneu_te,
+      estepe,
+      eletrica_farois,
+      parabrisa_limpadores,
+      observacoes,
+    } = req.body;
+
+    // Lógica para determinar se existe alguma pendência grave no veículo
+    const itensComPendencia = [
+      documento_crlv,
+      triangulo,
+      chave_roda,
+      macaco,
+      extintor,
+      tacografos_faixas,
+      epis_capacete,
+      nivel_oleo,
+      liquido_arrefecimento,
+      sistema_freio,
+      suspensao_transmissao,
+      hidraulico_munck,
+      eletrica_farois,
+      parabrisa_limpadores,
+    ].some(
+      (item) =>
+        item &&
+        (item.includes('NAO') ||
+          item.includes('DEFEITO') ||
+          item.includes('VAZAMENTO') ||
+          item.includes('TRINCADO')),
     );
 
-    // Atualiza automaticamente a quilometragem atual do veículo na tabela "veiculos"
-    await db.query('UPDATE veiculos SET km_atual = ? WHERE id = ?', [
-      km_registro,
-      veiculo_id,
-    ]);
+    const pneusComProblema = [pneu_dd, pneu_de, pneu_td, pneu_te, estepe].some(
+      (pneu) => pneu === 'RUIM',
+    );
 
-    res.status(201).json({ mensagem: 'Checklist registrado com sucesso!' });
-  } catch (err) {
-    res
+    const status_geral =
+      itensComPendencia || pneusComProblema ? 'COM_PENDENCIA' : 'APROVADO';
+
+    const sql = `
+      INSERT INTO checklists (
+        tipo_checklist, veiculo_id, motorista_id, km_atual, nivel_combustivel, cartao_combustivel,
+        documento_crlv, triangulo, chave_roda, macaco, extintor, tacografos_faixas, epis_capacete,
+        nivel_oleo, liquido_arrefecimento, sistema_freio, suspensao_transmissao, hidraulico_munck,
+        pneu_dd, pneu_de, pneu_td, pneu_te, estepe, eletrica_farois, parabrisa_limpadores,
+        observacoes, status_geral
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      tipo_checklist,
+      veiculo_id,
+      motorista_id,
+      km_atual,
+      nivel_combustivel,
+      cartao_combustivel,
+      documento_crlv,
+      triangulo,
+      chave_roda,
+      macaco,
+      extintor,
+      tacografos_faixas,
+      epis_capacete,
+      nivel_oleo,
+      liquido_arrefecimento,
+      sistema_freio,
+      suspensao_transmissao,
+      hidraulico_munck,
+      pneu_dd,
+      pneu_de,
+      pneu_td,
+      pneu_te,
+      estepe,
+      eletrica_farois,
+      parabrisa_limpadores,
+      observacoes,
+      status_geral,
+    ];
+
+    await db.query(sql, values);
+
+    return res
+      .status(201)
+      .json({ mensagem: 'Checklist salvo com sucesso!', status_geral });
+  } catch (error) {
+    console.error('Erro ao salvar checklist:', error);
+    return res
       .status(500)
-      .json({ mensagem: 'Erro ao registrar checklist.', erro: err.message });
+      .json({ erro: 'Erro interno ao registrar checklist.' });
   }
 };
 
-// FUNÇÃO 2: LISTAR HISTÓRICO DE CHECKLISTS
 exports.listarChecklists = async (req, res) => {
   try {
-    // Busca os checklists trazendo os nomes do veículo e do motorista via JOIN
-    const [checklists] = await db.query(
-      `SELECT c.*, v.modelo AS veiculo_modelo, v.placa, m.nome AS motorista_nome 
-             FROM checklists c
-             JOIN veiculos v ON c.veiculo_id = v.id
-             JOIN motoristas m ON c.motorista_id = m.id
-             ORDER BY c.data_registro DESC`,
-    );
-    res.json(checklists);
-  } catch (err) {
-    res
-      .status(500)
-      .json({ mensagem: 'Erro ao buscar checklists.', erro: err.message });
+    const sql = `
+      SELECT c.*, v.placa, v.modelo, m.nome as motorista_nome 
+      FROM checklists c
+      LEFT JOIN veiculos v ON c.veiculo_id = v.id
+      LEFT JOIN motoristas m ON c.motorista_id = m.id
+      ORDER BY c.data_checklist DESC
+    `;
+    const [rows] = await db.query(sql);
+    return res.json(rows);
+  } catch (error) {
+    console.error('Erro ao buscar checklists:', error);
+    return res.status(500).json({ erro: 'Erro interno ao buscar checklists.' });
   }
 };

@@ -1,9 +1,10 @@
+// routes/checklistRoutes.js
 const express = require('express');
 const router = express.Router();
 const checklistController = require('../controllers/checklistController');
-const authMiddleware = require('../middlewares/authMiddleware');
 
-router.post('/', authMiddleware, checklistController.cadastrarChecklist);
-router.get('/', authMiddleware, checklistController.listarChecklists);
+// A rota final será http://localhost:3000/checklists
+router.get('/', checklistController.listarChecklists);
+router.post('/', checklistController.criarChecklist);
 
 module.exports = router;
