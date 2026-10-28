@@ -8,6 +8,8 @@ const veiculoRoutes = require('./routes/veiculoRoutes');
 const checklistRoutes = require('./routes/checklistRoutes');
 const abastecimentoRoutes = require('./routes/abastecimentoRoutes');
 const motoristaRoutes = require('./routes/motoristaRoutes');
+const manutencaoRoutes = require('./routes/manutencaoRoutes');
+const multaRoutes = require('./routes/multaRoutes');
 
 // Inicialização do App
 const app = express();
@@ -22,6 +24,8 @@ app.use('/api/veiculos', veiculoRoutes);
 app.use('/api/checklists', checklistRoutes);
 app.use('/api/abastecimentos', abastecimentoRoutes);
 app.use('/api/motoristas', motoristaRoutes);
+app.use('/api/manutencoes', manutencaoRoutes);
+app.use('/api/multas', multaRoutes);
 
 app.get('/', (req, res) => {
   res.send('API da Gestão de Frotas rodando com sucesso!');
