@@ -1,5 +1,7 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
+
 require('dotenv').config();
 
 // Importação das Rotas
@@ -10,6 +12,8 @@ const abastecimentoRoutes = require('./routes/abastecimentoRoutes');
 const motoristaRoutes = require('./routes/motoristaRoutes');
 const manutencaoRoutes = require('./routes/manutencaoRoutes');
 const multaRoutes = require('./routes/multaRoutes');
+const pneuRoutes = require('./routes/pneuRoutes');
+const documentoRoutes = require('./routes/documentoRoutes');
 
 // Inicialização do App
 const app = express();
@@ -26,6 +30,9 @@ app.use('/api/abastecimentos', abastecimentoRoutes);
 app.use('/api/motoristas', motoristaRoutes);
 app.use('/api/manutencoes', manutencaoRoutes);
 app.use('/api/multas', multaRoutes);
+app.use('/api/pneus', pneuRoutes);
+app.use('/api/documentos', documentoRoutes);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.get('/', (req, res) => {
   res.send('API da Gestão de Frotas rodando com sucesso!');
