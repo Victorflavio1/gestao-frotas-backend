@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const controller = require('../controllers/pneuController');
+const pneuController = require('../controllers/pneuController');
 
-router.get('/', controller.getPneus);
-router.post('/', controller.createPneu);
-router.put('/:id', controller.updatePneu);
-router.delete('/:id', controller.deletePneu);
+// Verifique se todas estas funções existem e estão exportadas no pneuController.js
+router.get('/veiculos-elegiveis', pneuController.getVeiculosElegiveis);
+router.get('/', pneuController.getPneus);
+router.post('/', pneuController.createPneu);
+router.put('/:id', pneuController.updatePneu);
+router.delete('/:id', pneuController.deletePneu);
 
 module.exports = router;
